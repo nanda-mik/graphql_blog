@@ -5,8 +5,11 @@ const dotenv = require('dotenv');
 const path = require('path');
 const multer = require('multer');
 const uuidv4 = require('uuidv4');
+const graphqlHttp = require('express-graphql');
 dotenv.config();
 
+const graphqlSchema = require('./graphql/schema');
+const graphqlResolver = require('./graphql/resolver');
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -43,9 +46,28 @@ app.use((req,res,next)=>{
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
     res.setHeader('Access-Control-Allow-Headers','Content-Type,Authorization');
+    if(req.method === 'OPTIONS'){
+        return res.sendStatus(200);
+    }
     next();
 })
 
+app.use('/graphql', graphqlHttp({
+    schema: graphqlSchema,
+    rootValue: graphqlResolver,
+    graphiql: true,
+    formatError(err) {
+        if(!err.originalError) {
+            return err;
+        }
+        const data = err.originalError.data;
+        const message = err.message || 'An error occurred.';
+        const code = err.originalError.code || 500;
+        return { message: message, status: code, data: data };
+
+    }
+})
+);
 
 
 app.use((error, req, res, next) => {
